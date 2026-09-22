@@ -124,14 +124,15 @@ se der tudo certo**, move o conteúdo pro diretório atual (ou pro
 
 Antes de mover, ele confere item por item se algo com o mesmo nome já
 existe no destino. **Se qualquer coisa colidir, nada é movido** — o erro
-lista o que colidiu, e o conteúdo gerado continua intacto na subpasta
-temporária pra você resolver manualmente:
+lista o que colidiu, e o conteúdo gerado continua intacto numa subpasta
+temporária (`.scaffold-tmp.XXXXXX`, nome aleatório via `mktemp`) pra você
+resolver manualmente:
 
 ```bash
 $ cd meu-projeto-existente   # já tem um .editorconfig seu
 $ bash scaffold.sh meu-projeto . --agents=claude --here
 Erro: --here abortado — já existe em '.': .editorconfig
-Nada foi movido. O conteúdo gerado continua intacto em './meu-projeto' pra você resolver manualmente.
+Nada foi movido. O conteúdo gerado continua intacto em './.scaffold-tmp.a1b2c3' pra você resolver manualmente.
 ```
 
 `--here` também recusa rodar se o destino não existir, não for gravável,

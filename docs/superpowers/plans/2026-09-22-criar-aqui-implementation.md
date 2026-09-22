@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Nota pós-auditoria (2026-09-22):** a subpasta temporária usada em
+> `--here` deixou de se chamar `$PROJECT_NAME` e passou a usar
+> `mktemp -d` (nome aleatório `.scaffold-tmp.XXXXXX`) — fix pros achados
+> 5 e 6 da auditoria independente. Os trechos de teste abaixo que
+> assumem `$PROJECT_DIR` = `$DEST_PARENT/$PROJECT_NAME` refletem o
+> desenho original; o comportamento final e os testes reais estão em
+> `.github/workflows/test.yml` e documentados na spec correspondente.
+
 **Goal:** Adicionar flag `--here` ao `scaffold.sh` — gera na subpasta temporária de sempre e, só após sucesso total, move o conteúdo pro destino, com checagem de colisão tudo-ou-nada.
 
 **Architecture:** Zero mudança no caminho de geração existente. Bloco de guarda de destino no início (só ativo com `--here`) + bloco de move-com-checagem no final (só ativo com `--here`, só executa depois de `trap - ERR`).
