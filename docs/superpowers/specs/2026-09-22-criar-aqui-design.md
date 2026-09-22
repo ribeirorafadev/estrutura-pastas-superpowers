@@ -88,3 +88,25 @@ bloco de "mover com segurança" no final.
 - `README.md` — documenta a flag, exemplo de uso.
 - `.github/workflows/test.yml` — testes cobrindo happy path, colisão,
   destino perigoso (`$HOME`), destino inexistente.
+
+## Auditoria independente pós-implementação (2026-09-22)
+
+Subagente sem contexto prévio (fresh) auditou a implementação com PoC real
+pra cada tentativa de ataque, não só leitura de código. Achados e status:
+
+| # | Achado | Severidade | Status |
+|---|---|---|---|
+| 1 | Symlink quebrado no destino furava a checagem `[ -e ]` (falso-negativo de colisão) — quebrava "tudo ou nada" | Médio | **Corrigido** — checagem agora usa `[ -e ] \|\| [ -L ]` |
+| 2 | Blocklist de `$HOME` comparava string literal — furada por barra final e por `$HOME` visto através de symlink (padrão real em algumas distros Linux) | Médio | **Corrigido** — `$HOME` e o destino são canonicalizados via `cd -P && pwd` antes de comparar |
+| 3 | `CDPATH` exportado fazia `cd && pwd` imprimir 2 linhas, nunca batendo com `$HOME` — desligava a blocklist inteira. Mesmo bug pré-existia em `SCRIPT_DIR` (fora do escopo de `--here`, mas mesma causa raiz) | Médio | **Corrigido** — `unset CDPATH` no topo do script |
+| 4 | `mv -t` é extensão GNU — `--here` quebra no macOS (`mv: illegal option -- t`), que está na matrix do CI | Alto | **Corrigido** — trocado por `mv item dest/` (POSIX, um item por vez) |
+| 5 | Corrida entre duas execuções `--here` simultâneas: mesmo nome de projeto causava trap de uma apagar o `PROJECT_DIR` da outra no meio da geração | Médio (já documentado como risco residual aceito, mas essa fatia específica não estava) | **Mitigado** — subpasta agora tem nome aleatório via `mktemp -d` (atômico), elimina a colisão por nome igual. TOCTOU no `mv` final continua risco residual aceito (ver seção acima) |
+| 6 | Nome de projeto igual a um item que seria gerado (ex.: projeto chamado `docs`) fazia `--here` falhar sempre, achando a própria subpasta como colisão | Baixo (UX) | **Corrigido** — resolvido pelo mesmo fix do #5 (`mktemp`, nome não previsível) |
+| 7 | Testes negativos com `! comando` no meio de um step (não na última linha) são isentos de `set -e` — viram no-op silencioso. Confirmado por teste de mutação (regex afrouxada, teste continuava "passando") | Médio (lacuna de teste, não do script) | **Corrigido** — todos os `! comando` de shell convertidos pra `comando && exit 1 \|\| true`; testes de regressão adicionados pros achados 1-3 e 6 |
+| 8 | Mensagem de erro confusa quando destino é arquivo, não diretório | Baixo | **Corrigido** — mensagem distingue "não existe" de "existe mas não é diretório" |
+
+Nenhum achado envolveu perda ou sobrescrita de dados do usuário — o
+`trap` e o `mv -n` seguraram em todos os cenários testados. Os achados
+eram sobre as garantias do design (tudo-ou-nada, blocklist, portabilidade)
+não se sustentarem em condições adversariais específicas, não sobre dados
+sendo destruídos silenciosamente.

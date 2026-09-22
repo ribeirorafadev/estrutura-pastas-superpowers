@@ -74,21 +74,25 @@ jobs:
 
       - name: Nome com barra é rejeitado, nada é criado
         run: |
-          ! bash scripts/scaffold.sh "t6/sub" /tmp
+          bash scripts/scaffold.sh "t6/sub" /tmp && exit 1 || true
           test ! -e /tmp/t6
 
       - name: Path traversal no nome é rejeitado, nada escapa do destino
         run: |
           mkdir -p /tmp/t7-dest
-          ! bash scripts/scaffold.sh "../t7-escaped" /tmp/t7-dest
+          bash scripts/scaffold.sh "../t7-escaped" /tmp/t7-dest && exit 1 || true
           test ! -e /tmp/t7-escaped
 
       - name: Metacaractere de shell no nome é rejeitado
+        # "&& exit 1 || true" em vez de "! comando": bang de shell nao e
+        # pego por "set -e" quando nao e a ultima linha do step — os 3
+        # primeiros casos abaixo passariam mudos mesmo que o scaffold
+        # aceitasse o nome invalido. Confirmado por teste de mutacao.
         run: |
-          ! bash scripts/scaffold.sh 't8-$(id)' /tmp
-          ! bash scripts/scaffold.sh 't8;id' /tmp
-          ! bash scripts/scaffold.sh '.t8-oculto' /tmp
-          ! bash scripts/scaffold.sh '' /tmp
+          bash scripts/scaffold.sh 't8-$(id)' /tmp && exit 1 || true
+          bash scripts/scaffold.sh 't8;id' /tmp && exit 1 || true
+          bash scripts/scaffold.sh '.t8-oculto' /tmp && exit 1 || true
+          bash scripts/scaffold.sh '' /tmp && exit 1 || true
 
       - name: --lang e --agents são case-insensitive
         run: |
@@ -133,7 +137,7 @@ jobs:
           mkdir -p /tmp/fakebin-lntest
           printf '#!/bin/sh\necho "ln: falha simulada" >&2\nexit 1\n' > /tmp/fakebin-lntest/ln
           chmod +x /tmp/fakebin-lntest/ln
-          ! PATH="/tmp/fakebin-lntest:$PATH" bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude
+          PATH="/tmp/fakebin-lntest:$PATH" bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude && exit 1 || true
           test ! -e /tmp/t15-lnfail
           bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude
           test -f /tmp/t15-lnfail/CLAUDE.md
@@ -143,31 +147,51 @@ jobs:
 
       - name: --here recusa destino que nao existe
         run: |
-          ! bash scripts/scaffold.sh t16-here-noexist /tmp/t16-nao-existe --agents=claude --here
+          bash scripts/scaffold.sh t16-here-noexist /tmp/t16-nao-existe --agents=claude --here && exit 1 || true
           test ! -e /tmp/t16-nao-existe
 
       - name: --here recusa $HOME resolvido (blocklist)
         run: |
           mkdir -p /tmp/t17-fakehome
-          ! HOME=/tmp/t17-fakehome bash scripts/scaffold.sh t17-proj /tmp/t17-fakehome --agents=claude --here
+          (HOME=/tmp/t17-fakehome bash scripts/scaffold.sh t17-proj /tmp/t17-fakehome --agents=claude --here) && exit 1 || true
           test ! -f /tmp/t17-fakehome/CLAUDE.md
 
-      - name: --here move o conteudo pro destino, sem deixar subpasta
+      - name: --here recusa $HOME com barra final ou visto atraves de symlink
+        run: |
+          mkdir -p /tmp/t17b-fakehome
+          (HOME=/tmp/t17b-fakehome/ bash scripts/scaffold.sh p /tmp/t17b-fakehome --agents=claude --here) && exit 1 || true
+          test ! -f /tmp/t17b-fakehome/CLAUDE.md
+
+          mkdir -p /tmp/t17c/var/home/user
+          ln -s var/home /tmp/t17c/home
+          (cd /tmp/t17c/home/user && HOME=/tmp/t17c/home/user bash "$GITHUB_WORKSPACE/scripts/scaffold.sh" p . --agents=claude --here) && exit 1 || true
+          test ! -f /tmp/t17c/home/user/CLAUDE.md
+
+      - name: --here move o conteudo pro destino, sem deixar subpasta temporaria
         run: |
           mkdir -p /tmp/t18-here-ok
           bash scripts/scaffold.sh t18-proj /tmp/t18-here-ok --agents=claude --here
           test -f /tmp/t18-here-ok/CLAUDE.md
           test -d /tmp/t18-here-ok/.agents
           test ! -e /tmp/t18-here-ok/t18-proj
+          ! ls -A /tmp/t18-here-ok | grep -q '^\.scaffold-tmp\.'
 
-      - name: --here aborta sem mover nada se houver colisao
+      - name: --here aborta sem mover nada se houver colisao (tudo ou nada)
         run: |
           mkdir -p /tmp/t19-collision
           echo "meu conteudo" > /tmp/t19-collision/.gitignore
-          ! bash scripts/scaffold.sh t19-proj /tmp/t19-collision --agents=claude --here
+          bash scripts/scaffold.sh t19-proj /tmp/t19-collision --agents=claude --here && exit 1 || true
           grep -q "meu conteudo" /tmp/t19-collision/.gitignore
           test ! -f /tmp/t19-collision/CLAUDE.md
-          test -f /tmp/t19-collision/t19-proj/CLAUDE.md
+          find /tmp/t19-collision -maxdepth 1 -name '.scaffold-tmp.*' -type d | grep -q .
+
+      - name: --here com symlink quebrado no destino nao move nada por baixo do pano
+        run: |
+          mkdir -p /tmp/t19b-dangling
+          ln -s /tmp/t19b-dangling/nao-existe /tmp/t19b-dangling/.gitignore
+          bash scripts/scaffold.sh t19b-proj /tmp/t19b-dangling --agents=claude --here && exit 1 || true
+          test ! -f /tmp/t19b-dangling/CLAUDE.md
+          test -L /tmp/t19b-dangling/.gitignore
 
       - name: --here com symlink .claude/rules continua valido apos o move
         run: |
@@ -175,3 +199,16 @@ jobs:
           bash scripts/scaffold.sh t20-proj /tmp/t20-symlink --agents=claude --here
           test -L /tmp/t20-symlink/.claude/rules/architecture.md
           readlink -f /tmp/t20-symlink/.claude/rules/architecture.md | grep -q '/tmp/t20-symlink/.agents/rules/architecture.md'
+
+      - name: --here funciona quando o nome do projeto é igual a um item gerado
+        run: |
+          mkdir -p /tmp/t21-nome-igual
+          bash scripts/scaffold.sh docs /tmp/t21-nome-igual --agents=claude --here
+          test -f /tmp/t21-nome-igual/CLAUDE.md
+          test -d /tmp/t21-nome-igual/docs
+
+      - name: --here recusa quando CDPATH esta setado (nao deixa o cd vazar 2 linhas)
+        run: |
+          mkdir -p /tmp/t22-cdpath/fakehome
+          (cd /tmp/t22-cdpath && env HOME=/tmp/t22-cdpath/fakehome CDPATH=/tmp/t22-cdpath bash "$GITHUB_WORKSPACE/scripts/scaffold.sh" p fakehome --agents=claude --here) && exit 1 || true
+          test ! -f /tmp/t22-cdpath/fakehome/CLAUDE.md

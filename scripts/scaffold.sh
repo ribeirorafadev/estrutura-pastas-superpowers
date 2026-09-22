@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# CDPATH exportado faz "cd DIR && pwd" imprimir mais de uma linha (o cd
+# escolhe outro diretorio via CDPATH e ecoa o caminho encontrado) —
+# quebra toda comparacao de caminho resolvido abaixo (SCRIPT_DIR, guarda
+# de --here). Neutralizado uma vez, no topo, pra nao precisar lembrar em
+# cada uso de "cd ... && pwd".
+unset CDPATH
+
 LANGS=""
 AGENTS=""
 HERE=0
@@ -49,7 +56,6 @@ if [[ ! "$PROJECT_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   exit 1
 fi
 
-PROJECT_DIR="$DEST_PARENT/$PROJECT_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/../templates"
 
@@ -57,24 +63,44 @@ TEMPLATES_DIR="$SCRIPT_DIR/../templates"
 # limpo em vez de gerar tudo pra só descobrir no final que o destino era
 # perigoso ou inválido.
 if [ "$HERE" = "1" ]; then
-  if [ ! -d "$DEST_PARENT" ]; then
+  if [ ! -e "$DEST_PARENT" ]; then
     echo "Erro: --here exige que o diretório destino '$DEST_PARENT' já exista." >&2
+    exit 1
+  fi
+  if [ ! -d "$DEST_PARENT" ]; then
+    echo "Erro: '$DEST_PARENT' já existe mas não é um diretório — --here abortado." >&2
     exit 1
   fi
   if [ ! -w "$DEST_PARENT" ]; then
     echo "Erro: sem permissão de escrita em '$DEST_PARENT' — --here abortado." >&2
     exit 1
   fi
-  DEST_REAL="$(cd "$DEST_PARENT" && pwd -P)"
-  if [ "$DEST_REAL" = "$HOME" ] || [ "$DEST_REAL" = "/" ]; then
+  # pwd -P resolve symlink no caminho E barra final — sem isso, tanto
+  # HOME=/x/ quanto HOME apontando por symlink (ex.: /home -> var/home,
+  # padrao em algumas distros) furavam a comparacao literal abaixo.
+  DEST_REAL="$(cd -- "$DEST_PARENT" && pwd -P)"
+  HOME_REAL=""
+  if [ -n "${HOME:-}" ] && [ -d "$HOME" ]; then
+    HOME_REAL="$(cd -- "$HOME" && pwd -P)"
+  fi
+  if [ "$DEST_REAL" = "$HOME_REAL" ] || [ "$DEST_REAL" = "/" ]; then
     echo "Erro: --here recusado em '$DEST_REAL' — diretório considerado perigoso demais pra escrita em lote (raiz do sistema ou do usuário)." >&2
     exit 1
   fi
 fi
 
-if [ -e "$PROJECT_DIR" ]; then
-  echo "Erro: '$PROJECT_DIR' já existe." >&2
-  exit 1
+if [ "$HERE" = "1" ]; then
+  # Subpasta com nome aleatorio (nao $PROJECT_NAME): evita colisao quando
+  # o nome do projeto e igual a um item que sera gerado (ex.: projeto
+  # chamado "docs") e evita duas execucoes concorrentes com o mesmo nome
+  # disputarem o mesmo caminho. mktemp -d cria de forma atomica.
+  PROJECT_DIR="$(mktemp -d "$DEST_PARENT/.scaffold-tmp.XXXXXX")"
+else
+  PROJECT_DIR="$DEST_PARENT/$PROJECT_NAME"
+  if [ -e "$PROJECT_DIR" ]; then
+    echo "Erro: '$PROJECT_DIR' já existe." >&2
+    exit 1
+  fi
 fi
 
 # Resolve quais entrypoints de agente gerar. Sem --agents: gera tudo (retrocompat
@@ -218,7 +244,10 @@ if [ "$HERE" = "1" ]; then
   COLLISIONS=""
   while IFS= read -r -d '' entry; do
     base="$(basename "$entry")"
-    if [ -e "$DEST_PARENT/$base" ]; then
+    target="$DEST_PARENT/$base"
+    # -e sozinho segue symlink e da falso-negativo pra link quebrado
+    # (existe a entrada, so nao existe o alvo) — -L pega esse caso.
+    if [ -e "$target" ] || [ -L "$target" ]; then
       COLLISIONS="$COLLISIONS $base"
     fi
   done < <(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -print0)
@@ -229,7 +258,11 @@ if [ "$HERE" = "1" ]; then
     exit 1
   fi
 
-  find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -exec mv -n -t "$DEST_PARENT" {} +
+  # "-exec mv ... {} \;" (um mv por item) em vez de "-t DEST {} +": -t e
+  # a forma batched sao extensoes GNU, mv do BSD/macOS nao tem -t. A
+  # forma "mv -n item dest/" (destino por ultimo, um item por vez) e
+  # POSIX e funciona identico nos dois.
+  find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -exec mv -n {} "$DEST_PARENT/" \;
   if ! rmdir "$PROJECT_DIR" 2>/dev/null; then
     echo "Aviso: '$PROJECT_DIR' não pôde ser removida (não está vazia) — confira manualmente." >&2
   fi
