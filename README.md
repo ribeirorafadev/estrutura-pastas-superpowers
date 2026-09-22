@@ -36,7 +36,8 @@ ali dentro.
 novo-projeto/
 ├── .github/
 │   └── workflows/
-│       └── test.yml          # CI: matrix ubuntu/macos/windows, 17 steps
+│       └── test.yml          # CI: matrix ubuntu/macos/windows, 33 steps
+├── .gitattributes            # força LF em todo checkout (independe de core.autocrlf do usuário)
 ├── scripts/
 │   └── scaffold.sh           # gera a estrutura (único script executável)
 ├── templates/                # conteúdo copiado/adaptado pro projeto gerado
@@ -127,7 +128,7 @@ ln -s ~/.agents/skills/novo-projeto ~/.claude/skills/novo-projeto
 ```bash
 bash scripts/scaffold.sh <nome-do-projeto> [diretorio-destino] \
   [--lang=java,python,web,go,yaml,markdown,csharp,php,kotlin,rust,ruby] \
-  [--agents=claude,grok,codex,cursor,antigravity] \
+  [--agents=claude,grok,codex,cursor,kimi,cline,roocode,antigravity] \
   [--here]
 ```
 
@@ -137,10 +138,13 @@ o script rejeita qualquer outro valor antes de criar arquivos. Cada valor
 de `--lang` passa pelo mesmo tipo de checagem (letras, números, `_`, `-`);
 valor fora disso é ignorado com aviso, igual a uma linguagem desconhecida.
 `--lang` e `--agents` são case-insensitive (`--lang=JAVA` e `--lang=java`
-são equivalentes); passar a mesma flag duas vezes avisa em stderr e usa o
-último valor. `--agents` com só valores desconhecidos cai pra gerar
-`AGENTS.md` (fallback seguro, padrão aberto) em vez de não gerar nenhum
-entrypoint.
+são equivalentes) e toleram espaço em volta da vírgula (`--agents=grok,
+codex`); passar a mesma flag duas vezes avisa em stderr e usa o último
+valor. Todo valor de `--agents` não reconhecido — sozinho ou junto de
+outros já reconhecidos — cai individualmente pra gerar `AGENTS.md`
+(fallback seguro, padrão aberto): `--agents=copilot,claude` gera
+`AGENTS.md` pro copilot **e** `CLAUDE.md` pro claude, nunca só um dos
+dois.
 
 `[diretorio-destino]` **não é validado** — é tratado como `mkdir`/`cp`
 tratam um caminho: vai exatamente pra onde você apontar, incluindo `..`
@@ -194,10 +198,15 @@ Ambas as flags são opcionais e independentes:
   flag, gera tudo (`CLAUDE.md` + `.claude/` + `AGENTS.md`). Com a flag, só o
   que foi pedido:
   - `claude` → `CLAUDE.md` + `.claude/` (rules symlinked, settings.json)
-  - `grok` / `codex` / `cursor` → `AGENTS.md` na raiz (padrão aberto
-    [agents.md](https://agents.md/) — o Grok Build também lê `AGENTS.md`
-    diretamente, confirmado em [docs.x.ai](https://docs.x.ai/build/features/project-rules))
+  - `grok` / `codex` / `cursor` / `kimi` / `cline` / `roocode` → `AGENTS.md`
+    na raiz (padrão aberto [agents.md](https://agents.md/) — Grok Build
+    confirmado em [docs.x.ai](https://docs.x.ai/build/features/project-rules),
+    Codex CLI é co-autor do formato, Kimi Code/Cline/Roo Code confirmados
+    via docs oficiais de cada ferramenta, set/2026)
   - `antigravity` → nada extra, lê `.agents/rules/` nativamente
+  - qualquer outro valor (ex.: `copilot`, `windsurf`) → também gera
+    `AGENTS.md` como fallback interoperável, com aviso em stderr — nunca
+    fica sem nenhuma instrução silenciosamente
 
 ### Exemplo
 
@@ -235,7 +244,7 @@ Gera `.agents/`, `docs/superpowers/`, `AGENTS.md`, `.editorconfig` (com
 │   ├── agents/
 │   └── settings.json          # permissions.deny padrão pra .env*/*.pem/*.key
 ├── CLAUDE.md                 # idem
-├── AGENTS.md                 # só se --agents inclui grok/codex/cursor (ou omitido)
+├── AGENTS.md                 # se --agents inclui grok/codex/cursor/kimi/cline/roocode, tem valor não reconhecido, ou é omitido
 ├── HANDOFF.md
 ├── .editorconfig             # [*] base + uma seção por --lang pedido
 └── .gitignore                # cobre .env*, *.pem, *.key, node_modules/, dist/

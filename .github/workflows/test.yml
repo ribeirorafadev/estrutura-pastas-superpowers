@@ -26,7 +26,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 (pin por SHA — supply chain, tag movel nao e confiavel)
 
       - name: Checa sintaxe do scaffold.sh
         run: bash -n scripts/scaffold.sh
@@ -132,6 +132,34 @@ jobs:
           test ! -f /tmp/t14-antigravity-only/AGENTS.md
           test ! -f /tmp/t14-antigravity-only/CLAUDE.md
 
+      - name: --agents=desconhecido,reconhecido — fallback é por item, não mascarado (regressão)
+        # Bug real achado em auditoria: ANY_AGENT_RECOGNIZED era um flag global,
+        # entao "claude" reconhecido suprimia o fallback pro agente desconhecido
+        # da mesma lista — quem pedia --agents=copilot,claude ficava sem NENHUMA
+        # instrucao pro copilot, silenciosamente, exit 0.
+        run: |
+          bash scripts/scaffold.sh t14b-fallback-por-item /tmp --agents=copilot,claude
+          test -f /tmp/t14b-fallback-por-item/AGENTS.md
+          test -f /tmp/t14b-fallback-por-item/CLAUDE.md
+
+      - name: kimi/cline/roocode são reconhecidos nativamente (sem aviso de "desconhecido")
+        run: |
+          bash scripts/scaffold.sh t14c-kimi /tmp --agents=kimi 2>/tmp/t14c.stderr
+          test -f /tmp/t14c-kimi/AGENTS.md
+          ! grep -qi 'desconhecido' /tmp/t14c.stderr
+
+      - name: --agents e --lang toleram espaço em volta da vírgula
+        run: |
+          bash scripts/scaffold.sh t14d-espaco /tmp --agents='grok, codex' --lang=' java , python'
+          test -f /tmp/t14d-espaco/AGENTS.md
+          grep -q '\[\*\.java\]' /tmp/t14d-espaco/.editorconfig
+          grep -q '\[\*\.py\]' /tmp/t14d-espaco/.editorconfig
+
+      - name: Arquivos e pastas gerados não ficam world-writable sob umask permissivo
+        run: |
+          ( umask 000 && bash scripts/scaffold.sh t14e-umask /tmp --agents=claude --lang=python )
+          ! find /tmp/t14e-umask \( -type f -o -type d \) -perm -002 | grep -q .
+
       - name: Falha de ln -s limpa o projeto parcial e libera retry
         run: |
           mkdir -p /tmp/fakebin-lntest
@@ -222,8 +250,43 @@ jobs:
           test -f /tmp/t21-nome-igual/CLAUDE.md
           test -d /tmp/t21-nome-igual/docs
 
+      - name: --here com destino symlink opera no caminho resolvido de ponta a ponta (TOCTOU/CWE-367)
+        # mktemp, checagem de colisao e mv tem que usar o mesmo caminho ja
+        # resolvido (DEST_REAL), nao o argumento cru (DEST_PARENT) de novo em
+        # cada etapa — senao uma troca do symlink entre etapas pode fazer a
+        # escrita real acontecer num lugar diferente do que foi validado.
+        run: |
+          mkdir -p /tmp/t21b-alvo-real
+          if ! ln -s /tmp/t21b-alvo-real /tmp/t21b-link 2>/dev/null; then
+            echo "Aviso: symlink nao suportado neste ambiente — pulando este teste." >&2
+            exit 0
+          fi
+          bash scripts/scaffold.sh t21b-proj /tmp/t21b-link --agents=claude --here
+          test -f /tmp/t21b-alvo-real/CLAUDE.md
+          test -f /tmp/t21b-link/CLAUDE.md
+          test ! -e /tmp/t21b-alvo-real/t21b-proj
+          find /tmp/t21b-alvo-real -maxdepth 1 -name '.scaffold-tmp.*' | grep -q . && exit 1 || true
+
       - name: --here recusa quando CDPATH esta setado (nao deixa o cd vazar 2 linhas)
         run: |
           mkdir -p /tmp/t22-cdpath/fakehome
           (cd /tmp/t22-cdpath && env HOME=/tmp/t22-cdpath/fakehome CDPATH=/tmp/t22-cdpath bash "$GITHUB_WORKSPACE/scripts/scaffold.sh" p fakehome --agents=claude --here) && exit 1 || true
           test ! -f /tmp/t22-cdpath/fakehome/CLAUDE.md
+
+      - name: .gitattributes força LF mesmo com core.autocrlf=true (regressão do bug de CRLF no Windows)
+        # core.autocrlf=true e' a opcao pre-selecionada no instalador oficial
+        # do Git for Windows ("Checkout Windows-style, commit Unix-style").
+        # Sem .gitattributes fixando eol=lf, scripts/scaffold.sh chegaria com
+        # CRLF no checkout e "set -euo pipefail" (linha 2) morreria com
+        # "pipefail\r: nome de opcao invalido" — bug sistemico, nao pontual.
+        # So roda uma vez (nao depende do SO do runner, e sim do comportamento
+        # do git no checkout).
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # "git checkout -- <path>" sem remover o arquivo antes e' um no-op
+          # se o working tree ja bate com o blob (git pula o rewrite) — sem
+          # o "rm", este teste passaria sempre, mesmo sem o .gitattributes
+          # (confirmado por teste manual antes de commitar este step).
+          rm scripts/scaffold.sh
+          git -c core.autocrlf=true checkout -- scripts/scaffold.sh
+          ! grep -qU $'\r' scripts/scaffold.sh

@@ -94,7 +94,11 @@ if [ "$HERE" = "1" ]; then
   # o nome do projeto e igual a um item que sera gerado (ex.: projeto
   # chamado "docs") e evita duas execucoes concorrentes com o mesmo nome
   # disputarem o mesmo caminho. mktemp -d cria de forma atomica.
-  PROJECT_DIR="$(mktemp -d "$DEST_PARENT/.scaffold-tmp.XXXXXX")"
+  # Usa $DEST_REAL (ja resolvido acima), nao $DEST_PARENT cru: se
+  # $DEST_PARENT for/contiver symlink trocado entre a validacao do guard
+  # de $HOME/raiz e este ponto (TOCTOU, CWE-367), operar sobre o caminho
+  # ja resolvido evita escrever num destino diferente do que foi validado.
+  PROJECT_DIR="$(mktemp -d "$DEST_REAL/.scaffold-tmp.XXXXXX")"
 else
   PROJECT_DIR="$DEST_PARENT/$PROJECT_NAME"
   if [ -e "$PROJECT_DIR" ]; then
@@ -105,34 +109,39 @@ fi
 
 # Resolve quais entrypoints de agente gerar. Sem --agents: gera tudo (retrocompat
 # com uso antigo, sem regressao). Com --agents: so o que foi pedido.
-#   claude              -> CLAUDE.md + .claude/ (rules symlinked, settings.json, skills/agents vazios)
-#   grok|codex|cursor   -> AGENTS.md na raiz (padrao aberto agents.md, ja confirmado
-#                          suportado pelo Grok Build via docs.x.ai/build/features/project-rules)
-#   antigravity         -> no-op: le .agents/rules/ nativamente, sem arquivo extra
+#   claude                            -> CLAUDE.md + .claude/ (rules symlinked, settings.json, skills/agents vazios)
+#   grok|codex|cursor|kimi|cline|roocode
+#                                      -> AGENTS.md na raiz (padrao aberto agents.md; grok confirmado
+#                                         via docs.x.ai/build/features/project-rules, codex e' co-autor
+#                                         do formato, kimi/cline/roocode confirmados via pesquisa live
+#                                         em 2026-09-22 — todos leem AGENTS.md nativamente)
+#   antigravity                       -> no-op: le .agents/rules/ nativamente, sem arquivo extra
+#   qualquer valor nao reconhecido    -> tambem gera AGENTS.md (fallback seguro por item — ver
+#                                         nota abaixo sobre por que isso precisa ser por item, nao global)
 GEN_CLAUDE=1
 GEN_AGENTS_MD=1
 if [ -n "$AGENTS" ]; then
   GEN_CLAUDE=0
   GEN_AGENTS_MD=0
-  ANY_AGENT_RECOGNIZED=0
   IFS=',' read -ra AGENT_LIST <<< "$AGENTS"
   for agent in "${AGENT_LIST[@]}"; do
-    agent="$(printf '%s' "$agent" | tr '[:upper:]' '[:lower:]')"
+    agent="$(printf '%s' "$agent" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [ -z "$agent" ] && continue
     case "$agent" in
-      claude) GEN_CLAUDE=1; ANY_AGENT_RECOGNIZED=1 ;;
-      grok|codex|cursor) GEN_AGENTS_MD=1; ANY_AGENT_RECOGNIZED=1 ;;
-      antigravity) ANY_AGENT_RECOGNIZED=1 ;;
-      *) echo "Aviso: agente desconhecido '$agent' — ignorado (conhecidos: claude, grok, codex, cursor, antigravity)." >&2 ;;
+      claude) GEN_CLAUDE=1 ;;
+      grok|codex|cursor|kimi|cline|roocode) GEN_AGENTS_MD=1 ;;
+      antigravity) ;;
+      # Fallback POR ITEM, nao global: um agente nao reconhecido gera
+      # AGENTS.md (padrao aberto interoperavel) mesmo que outros valores
+      # da mesma lista ja tenham sido reconhecidos — ex.: --agents=copilot,claude
+      # tem que gerar AGENTS.md pro copilot E CLAUDE.md pro claude, nao só
+      # o segundo silenciosamente por causa do primeiro ser desconhecido.
+      *)
+        echo "Aviso: agente desconhecido '$agent' — gerando AGENTS.md como fallback (padrao aberto lido por varias ferramentas alem de claude, grok, codex, cursor, kimi, cline, roocode, antigravity)." >&2
+        GEN_AGENTS_MD=1
+        ;;
     esac
   done
-  # Nenhum valor de --agents foi reconhecido: em vez de nao gerar nenhum
-  # entrypoint (usuario fica sem guia nenhum pro agente real dele), cai
-  # pra AGENTS.md como fallback seguro — e o padrao aberto agents.md, que
-  # cada vez mais ferramentas fora desta lista tambem leem nativamente.
-  if [ "$ANY_AGENT_RECOGNIZED" = "0" ]; then
-    GEN_AGENTS_MD=1
-    echo "Aviso: nenhum valor reconhecido em --agents='$AGENTS' — gerando AGENTS.md como fallback (padrao aberto agents.md, lido por varias ferramentas alem das listadas em --agents)." >&2
-  fi
 fi
 
 echo "Criando estrutura em $PROJECT_DIR ..."
@@ -196,7 +205,8 @@ if [ "$GEN_CLAUDE" = "1" ]; then
   cp "$TEMPLATES_DIR/claude-settings.json" "$PROJECT_DIR/.claude/settings.json"
 fi
 
-# AGENTS.md — so se grok/codex/cursor estiver em --agents (ou --agents omitido)
+# AGENTS.md — so se algum agente que le AGENTS.md (ou desconhecido, via fallback)
+# estiver em --agents (ou --agents omitido)
 if [ "$GEN_AGENTS_MD" = "1" ]; then
   sed "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" "$TEMPLATES_DIR/AGENTS.md.tmpl" > "$PROJECT_DIR/AGENTS.md"
 fi
@@ -207,7 +217,8 @@ cat "$EDITORCONFIG_DIR/base.editorconfig" > "$PROJECT_DIR/.editorconfig"
 if [ -n "$LANGS" ]; then
   IFS=',' read -ra LANG_LIST <<< "$LANGS"
   for lang in "${LANG_LIST[@]}"; do
-    lang="$(printf '%s' "$lang" | tr '[:upper:]' '[:lower:]')"
+    lang="$(printf '%s' "$lang" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [ -z "$lang" ] && continue
     if [[ ! "$lang" =~ ^[a-z0-9_-]+$ ]]; then
       echo "Aviso: valor invalido em --lang: '$lang' — ignorado (sem barra, espaco ou caracteres especiais)." >&2
       continue
@@ -237,6 +248,14 @@ EOF
 
 trap - ERR
 
+# Normaliza permissoes independente do umask herdado do processo. Alguns
+# arquivos gerados sao especificamente politica de seguranca
+# (.claude/settings.json com denylist de leitura de .env*/*.pem/*.key,
+# .agents/rules/security.md) — umask permissivo (ex.: 0000) nao deveria
+# deixa-los graváveis por outros usuários numa máquina multi-usuário.
+find "$PROJECT_DIR" -type d -exec chmod 755 {} +
+find "$PROJECT_DIR" -type f -exec chmod 644 {} +
+
 # --here: so move depois de TODA a geracao ter tido sucesso (trap ja
 # desarmado acima). Colisao em qualquer item aborta o move inteiro —
 # tudo ou nada, nunca mistura conteudo do dev com o gerado.
@@ -244,7 +263,10 @@ if [ "$HERE" = "1" ]; then
   COLLISIONS=""
   while IFS= read -r -d '' entry; do
     base="$(basename "$entry")"
-    target="$DEST_PARENT/$base"
+    # $DEST_REAL (resolvido na validacao), nao $DEST_PARENT cru — mesmo
+    # motivo do mktemp acima: fecha o TOCTOU se o symlink for trocado
+    # entre a validacao e este ponto.
+    target="$DEST_REAL/$base"
     # -e sozinho segue symlink e da falso-negativo pra link quebrado
     # (existe a entrada, so nao existe o alvo) — -L pega esse caso.
     if [ -e "$target" ] || [ -L "$target" ]; then
@@ -253,7 +275,7 @@ if [ "$HERE" = "1" ]; then
   done < <(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -print0)
 
   if [ -n "$COLLISIONS" ]; then
-    echo "Erro: --here abortado — já existe em '$DEST_PARENT':$COLLISIONS" >&2
+    echo "Erro: --here abortado — já existe em '$DEST_REAL':$COLLISIONS" >&2
     echo "Nada foi movido. O conteúdo gerado continua intacto em '$PROJECT_DIR' pra você resolver manualmente." >&2
     exit 1
   fi
@@ -262,11 +284,11 @@ if [ "$HERE" = "1" ]; then
   # a forma batched sao extensoes GNU, mv do BSD/macOS nao tem -t. A
   # forma "mv -n item dest/" (destino por ultimo, um item por vez) e
   # POSIX e funciona identico nos dois.
-  find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -exec mv -n {} "$DEST_PARENT/" \;
+  find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -exec mv -n {} "$DEST_REAL/" \;
   if ! rmdir "$PROJECT_DIR" 2>/dev/null; then
     echo "Aviso: '$PROJECT_DIR' não pôde ser removida (não está vazia) — confira manualmente." >&2
   fi
-  echo "Estrutura criada em $DEST_PARENT (--here)"
+  echo "Estrutura criada em $DEST_REAL (--here)"
 else
   echo "Estrutura criada em $PROJECT_DIR"
 fi

@@ -1,0 +1,6 @@
+# Força LF em todo checkout, independente do core.autocrlf do usuário.
+# "Checkout Windows-style, commit Unix-style" é a opção pré-selecionada
+# no instalador oficial do Git for Windows — sem isto, scripts/scaffold.sh
+# (e todos os templates lidos por ele via sed) chegam com CRLF e o bash
+# morre em "set -euo pipefail" (opção "pipefail\r" não existe).
+* text=auto eol=lf

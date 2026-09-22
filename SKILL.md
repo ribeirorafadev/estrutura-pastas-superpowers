@@ -28,10 +28,13 @@ Antes de rodar o script, se nao tiver ficado claro na conversa, pergunte ao usua
 
 2. **Agente(s) de IA que vai usar** — mapeia pra `--agents`:
    `claude` (gera `CLAUDE.md` + `.claude/` com rules symlinked, settings.json,
-   skills/agents vazios), `grok`/`codex`/`cursor` (todos leem o mesmo `AGENTS.md`
-   na raiz — padrao aberto agents.md), `antigravity` (no-op, le `.agents/rules/`
-   nativamente, sem arquivo extra). Pode ser mais de um. Se omitir a flag, o
-   script gera tudo (CLAUDE.md + .claude/ + AGENTS.md) por seguranca/retrocompat.
+   skills/agents vazios), `grok`/`codex`/`cursor`/`kimi`/`cline`/`roocode`
+   (todos leem o mesmo `AGENTS.md` na raiz — padrao aberto agents.md),
+   `antigravity` (no-op, le `.agents/rules/` nativamente, sem arquivo extra).
+   Qualquer outro valor tambem gera `AGENTS.md` como fallback interoperavel
+   (nunca fica sem nenhuma instrucao). Pode ser mais de um. Se omitir a
+   flag, o script gera tudo (CLAUDE.md + .claude/ + AGENTS.md) por
+   seguranca/retrocompat.
 
 3. **Onde criar** — se nao estiver claro, pergunte: "criar numa subpasta
    nova chamada `<nome>` (padrao) ou direto aqui neste diretorio?". So
@@ -76,7 +79,7 @@ pro diretorio atual.
 
 E explique ao usuario, em 3-4 linhas, a convencao:
 - `.agents/` e a fonte de verdade cross-agent (rules, context, skills, templates, agents) — sempre gerada, independente de agentes escolhidos. Antigravity le nativamente.
-- Entrypoints por agente sao condicionais: `CLAUDE.md`+`.claude/` so se `claude` estiver em `--agents`; `AGENTS.md` so se `grok`/`codex`/`cursor` estiver. `.claude/rules/*.md` sao symlinks pra `.agents/rules/` quando gerados — ativa path-scoping nativo do Claude Code sem duplicar conteudo.
+- Entrypoints por agente sao condicionais: `CLAUDE.md`+`.claude/` so se `claude` estiver em `--agents`; `AGENTS.md` se `grok`/`codex`/`cursor`/`kimi`/`cline`/`roocode` estiver, se `--agents` tiver algum valor nao reconhecido (fallback interoperavel), ou se `--agents` for omitido. `.claude/rules/*.md` sao symlinks pra `.agents/rules/` quando gerados — ativa path-scoping nativo do Claude Code sem duplicar conteudo.
 - `docs/README.md` e o indice da pasta docs/ inteira (visao geral pra humanos); `docs/superpowers/specs/README.md` e so o indice mecanico de specs do fluxo SDD — escopos diferentes.
 - `docs/superpowers/` segue o fluxo SDD descrito em `.agents/rules/spec-workflow.md`: `PRD.md` (intencao de produto, estavel), `ADR.md` (decisoes AD-NNN, append-only), `specs/` e `plans/` (por feature — toda spec nao-trivial inclui secao "Alternativas consideradas").
 - `.editorconfig` tem uma secao `[*]` base valida pra qualquer linguagem, mais uma secao por linguagem escolhida em `--lang`. Toda regra de indentacao vem de fonte oficial (gofmt, PSR-12, rustfmt etc.) — nunca de suposicao. `.agents/rules/code-style.md` nao duplica indentacao, so aponta pro `.editorconfig`.

@@ -20,3 +20,9 @@
 Thumbs.db
 *.swp
 *.swo
+
+# Worktrees isolados criados pelo próprio Claude Code (EnterWorktree) na
+# raiz DESTE repositório (o da skill, não um projeto escaffoldado) —
+# infraestrutura de sessão, nunca conteúdo real da skill. "/" ancora na
+# raiz pelo mesmo motivo do /HANDOFF.md acima.
+/.claude/
