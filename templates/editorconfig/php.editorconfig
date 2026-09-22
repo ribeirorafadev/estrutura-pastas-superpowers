@@ -1,0 +1,7 @@
+
+# PHP — PSR-12 (padrão oficial PHP-FIG), mandatório em qualquer projeto que
+# siga o padrão da comunidade PHP moderna.
+# Fonte: https://www.php-fig.org/psr/psr-12/
+# "Code MUST use an indent of 4 spaces for each indent level, and MUST NOT use tabs"
+[*.php]
+indent_size = 4

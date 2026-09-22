@@ -1,0 +1,5 @@
+
+# Markdown — 2 espaços no fim da linha é sintaxe de quebra de linha proposital
+# no CommonMark. O trim_trailing_whitespace global apagaria isso.
+[*.md]
+trim_trailing_whitespace = false

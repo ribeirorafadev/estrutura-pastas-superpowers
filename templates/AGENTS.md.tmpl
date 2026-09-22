@@ -1,0 +1,20 @@
+# {{PROJECT_NAME}} — Instruções pra Agentes de IA
+
+Este arquivo segue o padrão aberto [AGENTS.md](https://agents.md/) (mantido pela
+Agentic AI Foundation / Linux Foundation), lido nativamente por Codex, Cursor,
+Grok Build e outras ferramentas — ver `docs.x.ai/build/features/project-rules`
+pra confirmação do suporte no Grok.
+
+Antes de qualquer mudança no código, leia:
+
+- `.agents/rules/architecture.md` — stack, camadas, decisões não-negociáveis
+- `.agents/rules/code-style.md` — nomenclatura e convenções (indentação/whitespace
+  fica em `.editorconfig` na raiz — não duplicar aqui)
+- `.agents/rules/security.md` — restrições de segurança do projeto
+- `.agents/rules/spec-workflow.md` — fluxo de Spec-Driven Development (specs, plans, ADR)
+- `docs/superpowers/PRD.md` — intenção de produto
+- `docs/superpowers/ADR.md` — decisões arquiteturais já tomadas (log append-only, `AD-NNN`)
+
+Critério pra uma decisão virar entrada em `docs/superpowers/ADR.md` (os três,
+simultâneos): difícil de reverter, surpreendente sem contexto, produto de
+trade-off real. Ver `.agents/rules/spec-workflow.md` pro fluxo completo.

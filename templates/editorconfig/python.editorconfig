@@ -1,0 +1,9 @@
+
+# Python — indentação de 4 espaços é PEP 8 (fonte oficial, seção
+# "Indentation"). max_line_length=88 é o default do formatter oficial do
+# Ruff (Antigravity IDE usa ruff), igual ao default do Black.
+# Fontes: https://peps.python.org/pep-0008/#indentation
+#         https://docs.astral.sh/ruff/settings/#line-length
+[*.py]
+indent_size = 4
+max_line_length = 88

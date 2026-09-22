@@ -1,0 +1,7 @@
+
+# C# — exemplo oficial de .editorconfig da Microsoft (gerado pelo próprio
+# Visual Studio em Tools > Options > Text Editor > C# > Code Style).
+# Fonte: https://learn.microsoft.com/en-us/visualstudio/ide/editorconfig-code-style-settings-reference
+[*.cs]
+indent_size = 4
+tab_width = 4

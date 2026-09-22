@@ -1,0 +1,5 @@
+
+# YAML — a especificação proíbe tab na indentação (só espaço é válido).
+# Fonte: YAML Spec 1.2, seção 6.1 (Indentation Spaces)
+[*.{yml,yaml}]
+indent_size = 2

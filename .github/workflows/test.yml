@@ -1,0 +1,139 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # Windows-latest e best-effort: ln -s (usado pros symlinks em .claude/rules/)
+    # exige Developer Mode ou processo elevado no Windows — o runner hospedado
+    # pode ou nao ter esse privilegio. Nao bloqueia o CI se falhar; ver
+    # achado "falha de ln -s" no README/SKILL.md sobre o comportamento
+    # esperado nesse caso (limpeza automatica, sem estado parcial travado).
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checa sintaxe do scaffold.sh
+        run: bash -n scripts/scaffold.sh
+
+      - name: --help imprime uso e sai com exit 0
+        run: bash scripts/scaffold.sh --help | grep -q '^Uso:'
+
+      - name: Retrocompat — sem --lang nem --agents (deve gerar tudo)
+        run: |
+          bash scripts/scaffold.sh t1-retrocompat /tmp
+          test -f /tmp/t1-retrocompat/CLAUDE.md
+          test -d /tmp/t1-retrocompat/.claude
+          test -f /tmp/t1-retrocompat/AGENTS.md
+          test -f /tmp/t1-retrocompat/.editorconfig
+          ! grep -q '\[\*\.java\]' /tmp/t1-retrocompat/.editorconfig
+
+      - name: --agents restringe entrypoints (grok+antigravity, sem claude)
+        run: |
+          bash scripts/scaffold.sh t2-go-react /tmp --lang=go,web --agents=grok,antigravity
+          test ! -f /tmp/t2-go-react/CLAUDE.md
+          test ! -d /tmp/t2-go-react/.claude
+          test -f /tmp/t2-go-react/AGENTS.md
+          grep -q 'indent_style = tab' /tmp/t2-go-react/.editorconfig
+          grep -q '\[\*\.{js,jsx' /tmp/t2-go-react/.editorconfig
+
+      - name: --agents=claude isolado (sem AGENTS.md)
+        run: |
+          bash scripts/scaffold.sh t3-so-claude /tmp --agents=claude
+          test -f /tmp/t3-so-claude/CLAUDE.md
+          test ! -f /tmp/t3-so-claude/AGENTS.md
+
+      - name: Linguagem e agente desconhecidos nao devem quebrar o script
+        run: |
+          bash scripts/scaffold.sh t4-invalido /tmp --lang=cobol --agents=marte
+          test -d /tmp/t4-invalido
+
+      - name: Todas as linguagens suportadas juntas
+        run: |
+          bash scripts/scaffold.sh t5-full-lang /tmp \
+            --lang=java,python,web,go,yaml,markdown,csharp,php,kotlin,rust,ruby
+          grep -q '\[\*\.java\]' /tmp/t5-full-lang/.editorconfig
+          grep -q '\[\*\.go\]' /tmp/t5-full-lang/.editorconfig
+          grep -q '\[\*\.rb\]' /tmp/t5-full-lang/.editorconfig
+          grep -q '\[\*\.py\]' /tmp/t5-full-lang/.editorconfig
+
+      - name: Nome com barra é rejeitado, nada é criado
+        run: |
+          ! bash scripts/scaffold.sh "t6/sub" /tmp
+          test ! -e /tmp/t6
+
+      - name: Path traversal no nome é rejeitado, nada escapa do destino
+        run: |
+          mkdir -p /tmp/t7-dest
+          ! bash scripts/scaffold.sh "../t7-escaped" /tmp/t7-dest
+          test ! -e /tmp/t7-escaped
+
+      - name: Metacaractere de shell no nome é rejeitado
+        run: |
+          ! bash scripts/scaffold.sh 't8-$(id)' /tmp
+          ! bash scripts/scaffold.sh 't8;id' /tmp
+          ! bash scripts/scaffold.sh '.t8-oculto' /tmp
+          ! bash scripts/scaffold.sh '' /tmp
+
+      - name: --lang e --agents são case-insensitive
+        run: |
+          bash scripts/scaffold.sh t9-case-insensitive /tmp --lang=JAVA --agents=CLAUDE
+          grep -q '\[\*\.java\]' /tmp/t9-case-insensitive/.editorconfig
+          test -f /tmp/t9-case-insensitive/CLAUDE.md
+
+      - name: --agents repetido avisa em stderr e usa o último valor
+        run: |
+          bash scripts/scaffold.sh t10-agents-duplicado /tmp --agents=claude --agents=grok 2>/tmp/t10.stderr
+          grep -qi "aviso.*'--agents'" /tmp/t10.stderr
+          test ! -f /tmp/t10-agents-duplicado/CLAUDE.md
+          test -f /tmp/t10-agents-duplicado/AGENTS.md
+
+      - name: .gitignore e settings.json cobrem segredos por padrão
+        run: |
+          bash scripts/scaffold.sh t11-secrets /tmp --agents=claude
+          grep -q '^\.env$' /tmp/t11-secrets/.gitignore
+          grep -q '\*\.pem' /tmp/t11-secrets/.gitignore
+          grep -q '"Read(\.env\*)"' /tmp/t11-secrets/.claude/settings.json
+
+      - name: --lang com path traversal é ignorado, sem vazar arquivo
+        run: |
+          echo "SEGREDO_CI" > /tmp/t12-alvo.editorconfig
+          bash scripts/scaffold.sh t12-traversal /tmp --lang="../../../../../../../../../../tmp/t12-alvo"
+          ! grep -q SEGREDO_CI /tmp/t12-traversal/.editorconfig
+
+      - name: --agents totalmente desconhecido cai pra AGENTS.md
+        run: |
+          bash scripts/scaffold.sh t13-agent-fallback /tmp --agents=aider
+          test -f /tmp/t13-agent-fallback/AGENTS.md
+          test ! -f /tmp/t13-agent-fallback/CLAUDE.md
+
+      - name: --agents=antigravity isolado não aciona o fallback (sem nenhum entrypoint, por design)
+        run: |
+          bash scripts/scaffold.sh t14-antigravity-only /tmp --agents=antigravity
+          test ! -f /tmp/t14-antigravity-only/AGENTS.md
+          test ! -f /tmp/t14-antigravity-only/CLAUDE.md
+
+      - name: Falha de ln -s limpa o projeto parcial e libera retry
+        run: |
+          mkdir -p /tmp/fakebin-lntest
+          printf '#!/bin/sh\necho "ln: falha simulada" >&2\nexit 1\n' > /tmp/fakebin-lntest/ln
+          chmod +x /tmp/fakebin-lntest/ln
+          ! PATH="/tmp/fakebin-lntest:$PATH" bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude
+          test ! -e /tmp/t15-lnfail
+          bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude
+          test -f /tmp/t15-lnfail/CLAUDE.md

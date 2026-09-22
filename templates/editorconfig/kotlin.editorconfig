@@ -1,0 +1,6 @@
+
+# Kotlin — Kotlin Coding Conventions, guia oficial JetBrains/Kotlin.
+# Fonte: https://kotlinlang.org/docs/coding-conventions.html
+# "Use four spaces for indentation. Do not use tabs."
+[*.kt]
+indent_size = 4

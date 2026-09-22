@@ -1,0 +1,5 @@
+
+# Rust — rustfmt (formatter oficial), valores default: tab_spaces=4, hard_tabs=false.
+# Fonte: https://github.com/rust-lang/rustfmt/blob/master/Configurations.md
+[*.rs]
+indent_size = 4

@@ -1,0 +1,6 @@
+
+# Go — gofmt (ferramenta oficial) força tabs, não é preferência de estilo.
+# Fonte: https://go.dev/doc/effective_go#formatting
+# "We use tabs for indentation and gofmt emits them by default. Use spaces only if you must."
+[*.go]
+indent_style = tab

@@ -1,0 +1,6 @@
+
+# Java — IntelliJ IDEA (Default.xml): sem indentOptions customizado, usa o
+# default do IntelliJ (4 espaços, já coberto pelo [*] acima). RIGHT_MARGIN=120
+# é o único override real no code style.
+[*.java]
+max_line_length = 120

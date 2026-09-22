@@ -1,0 +1,12 @@
+# Handoff de sessão desta skill (não é o HANDOFF.md gerado nos projetos
+# escaffoldados, que vive em templates/HANDOFF.md e é versionado) — uso
+# pessoal entre sessões de IA, não faz parte do que é publicado.
+HANDOFF.md
+
+# Cruft de SO/editor — baseline defensivo, nada disso existe hoje na
+# árvore, mas evita commit acidental depois que o repo for clonado por
+# outras pessoas/máquinas.
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

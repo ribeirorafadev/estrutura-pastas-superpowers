@@ -1,0 +1,4 @@
+
+# Web — Antigravity IDE usa Prettier com tabSize=2 nesses overrides de linguagem.
+[*.{js,jsx,ts,tsx,html,css,json,jsonc}]
+indent_size = 2

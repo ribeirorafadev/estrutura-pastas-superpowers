@@ -1,0 +1,6 @@
+
+# Ruby — Ruby Style Guide (base do RuboCop, linter de facto da comunidade).
+# Fonte: https://rubystyle.guide/
+# "Use two spaces per indentation level (aka soft tabs). No hard tabs."
+[*.rb]
+indent_size = 2
