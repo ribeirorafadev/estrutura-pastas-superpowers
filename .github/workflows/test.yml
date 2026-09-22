@@ -261,6 +261,18 @@ jobs:
             echo "Aviso: symlink nao suportado neste ambiente — pulando este teste." >&2
             exit 0
           fi
+          # ln -s "funcionar" (sem erro) nao garante transparencia de
+          # leitura/escrita nos dois lados — em alguns ambientes MSYS/Windows
+          # o link criado para diretorio nao e' atravessado da mesma forma
+          # que num symlink POSIX real (ex.: junction em vez de symlink).
+          # Sonda antes de assumir a garantia que o teste depende.
+          echo sonda > /tmp/t21b-alvo-real/.sonda-symlink
+          if [ ! -f /tmp/t21b-link/.sonda-symlink ]; then
+            echo "Aviso: symlink de diretorio nao e transparente pra leitura/escrita neste ambiente — pulando este teste." >&2
+            rm -f /tmp/t21b-alvo-real/.sonda-symlink
+            exit 0
+          fi
+          rm -f /tmp/t21b-alvo-real/.sonda-symlink
           bash scripts/scaffold.sh t21b-proj /tmp/t21b-link --agents=claude --here
           test -f /tmp/t21b-alvo-real/CLAUDE.md
           test -f /tmp/t21b-link/CLAUDE.md
