@@ -5,6 +5,18 @@ como pair programming. Gera uma fonte de verdade cross-agent (`.agents/`), um
 fluxo de Spec-Driven Development (PRD/ADR/specs/plans) e um `.editorconfig`
 com cada regra de indentação vinda de fonte oficial — não de suposição.
 
+## Quando usar
+
+Feita pra **começar um projeto novo**, não pra injetar estrutura num projeto
+já em andamento. Por padrão o script sempre cria uma subpasta nova com o
+nome do projeto e recusa rodar se ela já existir (`Erro: '...' já existe`)
+— nunca escreve por cima de arquivos existentes. Com `--here` (ver seção
+abaixo), dá pra gerar direto no diretório atual sem a subpasta — mas o
+mesmo princípio vale: se algo colidir, nada é movido, nunca sobrescreve.
+Se você quer adotar `.agents/`/`docs/superpowers/` num projeto que já tem
+código real, copie os templates manualmente em vez de rodar o scaffold
+ali dentro.
+
 ## Estrutura do repositório
 
 ```
@@ -67,7 +79,8 @@ ln -s ~/.agents/skills/novo-projeto ~/.claude/skills/novo-projeto
 ```bash
 bash scripts/scaffold.sh <nome-do-projeto> [diretorio-destino] \
   [--lang=java,python,web,go,yaml,markdown,csharp,php,kotlin,rust,ruby] \
-  [--agents=claude,grok,codex,cursor,antigravity]
+  [--agents=claude,grok,codex,cursor,antigravity] \
+  [--here]
 ```
 
 `<nome-do-projeto>` aceita apenas letras, números, `.`, `_` e `-`, começando
@@ -86,7 +99,33 @@ tratam um caminho: vai exatamente pra onde você apontar, incluindo `..`
 pra subir níveis (uso legítimo normal). Se você integrar `scaffold.sh` num
 script ou CI de terceiros, não passe esse argumento com valor vindo de
 input externo não confiável (corpo de PR, webhook etc.) sem validar você
-mesmo antes — a skill nunca passa esse argumento no fluxo `/novo-projeto`.
+mesmo antes — a skill nunca passa esse argumento explicitamente no fluxo
+`/novo-projeto` (fica sempre no padrão `.`, o diretório atual).
+
+### `--here` — criar direto no diretório atual, sem subpasta
+
+Por padrão, o script sempre cria uma subpasta nova com o nome do projeto.
+Com `--here`, ele gera tudo normalmente numa subpasta temporária e, **só
+se der tudo certo**, move o conteúdo pro diretório atual (ou pro
+`[diretorio-destino]`, se informado) e apaga a subpasta temporária.
+
+Antes de mover, ele confere item por item se algo com o mesmo nome já
+existe no destino. **Se qualquer coisa colidir, nada é movido** — o erro
+lista o que colidiu, e o conteúdo gerado continua intacto na subpasta
+temporária pra você resolver manualmente:
+
+```bash
+$ cd meu-projeto-existente   # já tem um .editorconfig seu
+$ bash scaffold.sh meu-projeto . --agents=claude --here
+Erro: --here abortado — já existe em '.': .editorconfig
+Nada foi movido. O conteúdo gerado continua intacto em './meu-projeto' pra você resolver manualmente.
+```
+
+`--here` também recusa rodar se o destino não existir, não for gravável,
+ou resolver pra `$HOME`/raiz do sistema (proteção contra erro de operador
+— terminal aberto no lugar errado). Ver
+[`docs/superpowers/specs/2026-09-22-criar-aqui-design.md`](docs/superpowers/specs/2026-09-22-criar-aqui-design.md)
+pra a análise de risco completa por trás desse desenho.
 
 **Se você usa `/novo-projeto` via Claude Code, não rode a sessão com
 `--dangerously-skip-permissions` (ou qualquer modo "aceita tudo

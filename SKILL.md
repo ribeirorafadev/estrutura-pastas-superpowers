@@ -7,6 +7,17 @@ arguments: [nome]
 
 # Novo Projeto
 
+Essa skill e pra **comecar um projeto novo**, nao pra injetar estrutura num
+projeto ja em andamento. Por padrao ela sempre cria uma subpasta nova com
+o nome informado. Com `--here` (ver pergunta 3 abaixo), ela move o
+conteudo gerado pro diretorio atual em vez de deixar numa subpasta — mas
+so se **nada la colidir** com o que seria gerado; se colidir, ela recusa
+mover qualquer coisa e avisa o que colidiu (nunca sobrescreve, nunca
+mistura). Se pelo pedido do usuario parecer que ele quer adicionar essa
+estrutura a um projeto **ja existente com codigo real** (nao so um `.git`
+vazio), avise antes de rodar: mesmo com `--here`, isso nao e pensado pra
+retrofit — sugira copiar os templates manualmente nesse caso.
+
 Antes de rodar o script, se nao tiver ficado claro na conversa, pergunte ao usuario:
 
 1. **Stack completa** — linguagens/frameworks do projeto. Mapeia pra `--lang`:
@@ -21,6 +32,11 @@ Antes de rodar o script, se nao tiver ficado claro na conversa, pergunte ao usua
    na raiz — padrao aberto agents.md), `antigravity` (no-op, le `.agents/rules/`
    nativamente, sem arquivo extra). Pode ser mais de um. Se omitir a flag, o
    script gera tudo (CLAUDE.md + .claude/ + AGENTS.md) por seguranca/retrocompat.
+
+3. **Onde criar** — se nao estiver claro, pergunte: "criar numa subpasta
+   nova chamada `<nome>` (padrao) ou direto aqui neste diretorio?". So
+   ofereca "aqui" se o diretorio atual estiver vazio (ou so com `.git`).
+   Se o usuario escolher "aqui", adicione `--here` ao comando abaixo.
 
 **Antes de montar o comando abaixo, valide `$nome`:** só prossiga se `$nome`
 bater com `^[A-Za-z0-9][A-Za-z0-9._-]*$` (letras, numeros, `.`, `_`, `-`,
@@ -49,14 +65,14 @@ mostrar nada pro usuario — a unica defesa que sobra e a validacao de texto
 acima. Nao use essa skill em sessao assim.
 
 ```bash
-bash ${CLAUDE_SKILL_DIR}/scripts/scaffold.sh "$nome" --lang=<...> --agents=<...>
+bash ${CLAUDE_SKILL_DIR}/scripts/scaffold.sh "$nome" --lang=<...> --agents=<...> [--here]
 ```
 
-Depois de rodar, mostre a arvore gerada:
-
-```bash
-find "$nome" -not -path '*/node_modules/*' | sort
-```
+Depois de rodar, mostre a arvore gerada com `find`. Sem `--here`, rode
+`find "$nome" -not -path '*/node_modules/*' | sort` (conteudo esta na
+subpasta). Com `--here`, rode `find . -not -path '*/node_modules/*' | sort`
+em vez disso — a pasta `"$nome"` nao existe mais, o conteudo ja foi movido
+pro diretorio atual.
 
 E explique ao usuario, em 3-4 linhas, a convencao:
 - `.agents/` e a fonte de verdade cross-agent (rules, context, skills, templates, agents) — sempre gerada, independente de agentes escolhidos. Antigravity le nativamente.
