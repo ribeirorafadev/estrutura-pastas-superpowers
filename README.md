@@ -61,22 +61,55 @@ entre sessões, não faz parte do que é publicado.
 
 ## Pré-requisitos
 
-- `bash` + utilitários POSIX (`sed`, `ln -s`) — roda em qualquer terminal
-  Unix-like (Linux, macOS, WSL, Git Bash). **No Windows nativo** (fora de
-  WSL/Git Bash), `ln -s` exige Developer Mode habilitado ou o terminal
-  rodando como administrador — sem isso, a criação dos symlinks em
-  `.claude/rules/*.md` falha.
-- Opcional: [Claude Code](https://claude.com/claude-code), pra usar como skill
-  nativa (`/novo-projeto`).
+Precisa de `git` e um terminal com `bash` + utilitários POSIX (`sed`,
+`ln -s`, `mktemp`). Como conseguir isso em cada sistema operacional:
+
+### Linux
+
+`git` e `bash` já vêm instalados na grande maioria das distros. Se
+faltar `git`: `sudo apt install git` (Debian/Ubuntu), `sudo dnf install
+git` (Fedora) ou equivalente do seu gerenciador de pacotes.
+
+### macOS
+
+`git` vem junto das Command Line Tools do Xcode. Se o comando `git` não
+existir ainda, rodar `git --version` no Terminal dispara a instalação
+automaticamente (ou instale manualmente com `xcode-select --install`).
+O Terminal padrão do macOS já roda `bash`/`zsh` com tudo que o script
+precisa — nenhum passo extra.
+
+### Windows
+
+Windows nativo (`cmd.exe`/PowerShell puro) **não serve** — o script é
+bash. Duas opções:
+
+- **Git for Windows** (mais simples): baixe em
+  [git-scm.com/download/win](https://git-scm.com/download/win) e instale
+  com as opções padrão. Isso instala o **Git Bash**, que é o terminal a
+  usar pra clonar e rodar o script.
+- **WSL** (se você já usa ou pretende usar): qualquer distro Linux dentro
+  do WSL funciona como o Linux nativo acima.
+
+**Atenção a uma limitação específica do Windows**: a criação dos symlinks
+em `.claude/rules/*.md` usa `ln -s`, que no Windows exige **Developer
+Mode habilitado** (Configurações → Atualização e Segurança → Para
+desenvolvedores → Modo de desenvolvedor) **ou** o Git Bash aberto como
+administrador. Sem isso, essa etapa específica falha — o script detecta
+a falha, desfaz o que criou e permite tentar de novo sem deixar o
+projeto pela metade (não trava, não precisa apagar nada manualmente).
 
 ## Instalação
 
+Depois de ter `git` + `bash` disponíveis (seção acima), em qualquer um
+dos três sistemas o comando é o mesmo:
+
 ```bash
-git clone https://github.com/<seu-usuario>/novo-projeto.git ~/.agents/skills/novo-projeto
+git clone https://github.com/ribeirorafadev/estrutura-pastas-superpowers.git ~/.agents/skills/novo-projeto
 ```
 
 (Pode clonar em qualquer lugar — `~/.agents/skills/` é só a convenção usada
-aqui pra manter `.agents/` como fonte única de verdade entre múltiplos projetos.)
+aqui pra manter `.agents/` como fonte única de verdade entre múltiplos projetos.
+No Windows/Git Bash, `~` aponta pra `C:\Users\<seu-usuario>`.)
 
 ### Ativar como skill nativa do Claude Code (opcional)
 
@@ -86,6 +119,8 @@ uma vez:
 ```bash
 ln -s ~/.agents/skills/novo-projeto ~/.claude/skills/novo-projeto
 ```
+
+(mesma exigência de Developer Mode/administrador no Windows, ver acima.)
 
 ## Uso direto (qualquer terminal, sem Claude Code)
 
@@ -137,9 +172,10 @@ Nada foi movido. O conteúdo gerado continua intacto em './.scaffold-tmp.a1b2c3'
 
 `--here` também recusa rodar se o destino não existir, não for gravável,
 ou resolver pra `$HOME`/raiz do sistema (proteção contra erro de operador
-— terminal aberto no lugar errado). Ver
-[`docs/superpowers/specs/2026-09-22-criar-aqui-design.md`](docs/superpowers/specs/2026-09-22-criar-aqui-design.md)
-pra a análise de risco completa por trás desse desenho.
+— terminal aberto no lugar errado). Antes de mover, ele também detecta
+symlinks quebrados no destino (não só arquivos comuns) e nunca usa `mv`
+com flags exclusivas do GNU — funciona igual em Linux, macOS e Windows
+(Git Bash).
 
 **Se você usa `/novo-projeto` via Claude Code, não rode a sessão com
 `--dangerously-skip-permissions` (ou qualquer modo "aceita tudo
