@@ -3,11 +3,12 @@ set -euo pipefail
 
 LANGS=""
 AGENTS=""
+HERE=0
 POSITIONAL=()
 for arg in "$@"; do
   case "$arg" in
     -h|--help)
-      echo "Uso: scaffold.sh <nome-do-projeto> [diretorio-destino] [--lang=java,python,web,go,yaml,markdown,csharp,php,kotlin,rust,ruby] [--agents=claude,grok,codex,cursor,antigravity]"
+      echo "Uso: scaffold.sh <nome-do-projeto> [diretorio-destino] [--lang=java,python,web,go,yaml,markdown,csharp,php,kotlin,rust,ruby] [--agents=claude,grok,codex,cursor,antigravity] [--here]"
       exit 0
       ;;
     --lang=*)
@@ -22,6 +23,9 @@ for arg in "$@"; do
       fi
       AGENTS="${arg#--agents=}"
       ;;
+    --here)
+      HERE=1
+      ;;
     *)
       POSITIONAL+=("$arg")
       ;;
@@ -30,7 +34,7 @@ done
 set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
 if [ $# -lt 1 ]; then
-  echo "Uso: scaffold.sh <nome-do-projeto> [diretorio-destino] [--lang=java,python,web,...] [--agents=claude,grok,codex,cursor,antigravity]" >&2
+  echo "Uso: scaffold.sh <nome-do-projeto> [diretorio-destino] [--lang=java,python,web,...] [--agents=claude,grok,codex,cursor,antigravity] [--here]" >&2
   exit 1
 fi
 
@@ -48,6 +52,25 @@ fi
 PROJECT_DIR="$DEST_PARENT/$PROJECT_NAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/../templates"
+
+# --here: valida o destino ANTES de gerar qualquer coisa — falha cedo e
+# limpo em vez de gerar tudo pra só descobrir no final que o destino era
+# perigoso ou inválido.
+if [ "$HERE" = "1" ]; then
+  if [ ! -d "$DEST_PARENT" ]; then
+    echo "Erro: --here exige que o diretório destino '$DEST_PARENT' já exista." >&2
+    exit 1
+  fi
+  if [ ! -w "$DEST_PARENT" ]; then
+    echo "Erro: sem permissão de escrita em '$DEST_PARENT' — --here abortado." >&2
+    exit 1
+  fi
+  DEST_REAL="$(cd "$DEST_PARENT" && pwd -P)"
+  if [ "$DEST_REAL" = "$HOME" ] || [ "$DEST_REAL" = "/" ]; then
+    echo "Erro: --here recusado em '$DEST_REAL' — diretório considerado perigoso demais pra escrita em lote (raiz do sistema ou do usuário)." >&2
+    exit 1
+  fi
+fi
 
 if [ -e "$PROJECT_DIR" ]; then
   echo "Erro: '$PROJECT_DIR' já existe." >&2
@@ -187,4 +210,30 @@ CLAUDE.local.md
 EOF
 
 trap - ERR
-echo "Estrutura criada em $PROJECT_DIR"
+
+# --here: so move depois de TODA a geracao ter tido sucesso (trap ja
+# desarmado acima). Colisao em qualquer item aborta o move inteiro —
+# tudo ou nada, nunca mistura conteudo do dev com o gerado.
+if [ "$HERE" = "1" ]; then
+  COLLISIONS=""
+  while IFS= read -r -d '' entry; do
+    base="$(basename "$entry")"
+    if [ -e "$DEST_PARENT/$base" ]; then
+      COLLISIONS="$COLLISIONS $base"
+    fi
+  done < <(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -print0)
+
+  if [ -n "$COLLISIONS" ]; then
+    echo "Erro: --here abortado — já existe em '$DEST_PARENT':$COLLISIONS" >&2
+    echo "Nada foi movido. O conteúdo gerado continua intacto em '$PROJECT_DIR' pra você resolver manualmente." >&2
+    exit 1
+  fi
+
+  find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -exec mv -n -t "$DEST_PARENT" {} +
+  if ! rmdir "$PROJECT_DIR" 2>/dev/null; then
+    echo "Aviso: '$PROJECT_DIR' não pôde ser removida (não está vazia) — confira manualmente." >&2
+  fi
+  echo "Estrutura criada em $DEST_PARENT (--here)"
+else
+  echo "Estrutura criada em $PROJECT_DIR"
+fi

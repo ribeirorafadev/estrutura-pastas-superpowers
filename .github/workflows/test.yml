@@ -137,3 +137,41 @@ jobs:
           test ! -e /tmp/t15-lnfail
           bash scripts/scaffold.sh t15-lnfail /tmp --agents=claude
           test -f /tmp/t15-lnfail/CLAUDE.md
+
+      - name: --help menciona --here
+        run: bash scripts/scaffold.sh --help | grep -q -- '--here'
+
+      - name: --here recusa destino que nao existe
+        run: |
+          ! bash scripts/scaffold.sh t16-here-noexist /tmp/t16-nao-existe --agents=claude --here
+          test ! -e /tmp/t16-nao-existe
+
+      - name: --here recusa $HOME resolvido (blocklist)
+        run: |
+          mkdir -p /tmp/t17-fakehome
+          ! HOME=/tmp/t17-fakehome bash scripts/scaffold.sh t17-proj /tmp/t17-fakehome --agents=claude --here
+          test ! -f /tmp/t17-fakehome/CLAUDE.md
+
+      - name: --here move o conteudo pro destino, sem deixar subpasta
+        run: |
+          mkdir -p /tmp/t18-here-ok
+          bash scripts/scaffold.sh t18-proj /tmp/t18-here-ok --agents=claude --here
+          test -f /tmp/t18-here-ok/CLAUDE.md
+          test -d /tmp/t18-here-ok/.agents
+          test ! -e /tmp/t18-here-ok/t18-proj
+
+      - name: --here aborta sem mover nada se houver colisao
+        run: |
+          mkdir -p /tmp/t19-collision
+          echo "meu conteudo" > /tmp/t19-collision/.gitignore
+          ! bash scripts/scaffold.sh t19-proj /tmp/t19-collision --agents=claude --here
+          grep -q "meu conteudo" /tmp/t19-collision/.gitignore
+          test ! -f /tmp/t19-collision/CLAUDE.md
+          test -f /tmp/t19-collision/t19-proj/CLAUDE.md
+
+      - name: --here com symlink .claude/rules continua valido apos o move
+        run: |
+          mkdir -p /tmp/t20-symlink
+          bash scripts/scaffold.sh t20-proj /tmp/t20-symlink --agents=claude --here
+          test -L /tmp/t20-symlink/.claude/rules/architecture.md
+          readlink -f /tmp/t20-symlink/.claude/rules/architecture.md | grep -q '/tmp/t20-symlink/.agents/rules/architecture.md'
