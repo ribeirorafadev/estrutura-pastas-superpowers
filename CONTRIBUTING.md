@@ -57,8 +57,11 @@ manual e confiar. Fluxo esperado (o mesmo usado no histórico deste repo):
 Mudança maior (nova feature, não só bugfix)? Considere registrar o design
 numa spec antes de implementar, seguindo o mesmo fluxo de
 `.agents/rules/spec-workflow.md` (o que é gerado nos projetos que esta
-skill cria) — `docs/superpowers/` é local, gitignored neste próprio repo,
-então não serve de exemplo público, mas o formato é o mesmo.
+skill cria) — `docs/superpowers/specs/` deste próprio repo segue o mesmo
+formato e tem exemplo real (`2026-09-22-criar-aqui-design.md`, a spec da
+flag `--here`). `docs/superpowers/plans/` (checklist de execução) fica
+de fora do controle de versão — mecânico, pouco valor de leitura pra
+quem só quer contribuir.
 
 ## Outras contribuições
 

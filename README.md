@@ -175,7 +175,9 @@ ou resolver pra `$HOME`/raiz do sistema (proteção contra erro de operador
 — terminal aberto no lugar errado). Antes de mover, ele também detecta
 symlinks quebrados no destino (não só arquivos comuns) e nunca usa `mv`
 com flags exclusivas do GNU — funciona igual em Linux, macOS e Windows
-(Git Bash).
+(Git Bash). Análise de risco completa (por que esse desenho e não escrita
+direta no diretório atual, guardas de segurança, riscos residuais aceitos)
+em [`docs/superpowers/specs/2026-09-22-criar-aqui-design.md`](docs/superpowers/specs/2026-09-22-criar-aqui-design.md).
 
 **Se você usa `/novo-projeto` via Claude Code, não rode a sessão com
 `--dangerously-skip-permissions` (ou qualquer modo "aceita tudo
