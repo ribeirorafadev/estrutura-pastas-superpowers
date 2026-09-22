@@ -202,8 +202,15 @@ jobs:
           test -L /tmp/t19b-dangling/.gitignore
 
       - name: --here com symlink .claude/rules continua valido apos o move
+        # ln -s exige Developer Mode no Windows (ja documentado no README) —
+        # sonda a capacidade antes, pula com aviso se nao suportado, pra nao
+        # travar os testes seguintes (que nao dependem de symlink).
         run: |
-          mkdir -p /tmp/t20-symlink
+          mkdir -p /tmp/t20-symlink /tmp/.ln-probe-dir
+          if ! (ln -s /tmp/.ln-probe-dir /tmp/.ln-probe-link 2>/dev/null && rm -f /tmp/.ln-probe-link); then
+            echo "Aviso: ln -s nao suportado neste ambiente (Windows sem Developer Mode) — pulando este teste." >&2
+            exit 0
+          fi
           bash scripts/scaffold.sh t20-proj /tmp/t20-symlink --agents=claude --here
           test -L /tmp/t20-symlink/.claude/rules/architecture.md
           readlink -f /tmp/t20-symlink/.claude/rules/architecture.md | grep -q '/tmp/t20-symlink/.agents/rules/architecture.md'
