@@ -34,6 +34,31 @@ linguagens do `.editorconfig` e de agentes de IA suportados.
    template em `templates/`.
 4. Documente a fonte no `README.md` e no `SKILL.md`.
 
+**Exemplo real** (já feito neste repo, use como referência): `antigravity`
+foi adicionado como caso `no-op` — ele já lê `.agents/rules/` nativamente,
+então o `case` em `scaffold.sh` só precisou reconhecer o nome (pra não
+cair no aviso de "agente desconhecido") sem gerar nenhum arquivo extra.
+Zero template novo, zero mudança de estrutura — só uma linha no `case`.
+
+## Testes
+
+Todo PR que muda `scripts/scaffold.sh` precisa de teste novo em
+`.github/workflows/test.yml` cobrindo o comportamento — não só rodar
+manual e confiar. Fluxo esperado (o mesmo usado no histórico deste repo):
+
+1. **RED** — escreva o teste primeiro, rode local, confirme que falha
+   (ex.: `bash scripts/scaffold.sh ... ; test -f arquivo-esperado`).
+2. **GREEN** — implemente o mínimo pra passar, rode de novo, confirme.
+3. **Regressão** — rode a suite inteira do zero local antes do PR (todos
+   os steps do `test.yml`, um por um, contra `/tmp`) — não só o teste
+   novo. Já aconteceu de uma correção pontual quebrar algo silenciosamente
+   em outro fluxo; só a regressão completa pega isso.
+
+Mudança maior (nova feature, não só bugfix)? Considere registrar o design
+em `docs/superpowers/specs/` antes de implementar — ver
+`.agents/rules/spec-workflow.md` (gerado nos projetos que esta skill cria)
+ou os exemplos já existentes em `docs/superpowers/` deste próprio repo.
+
 ## Outras contribuições
 
 Abra uma issue antes de PRs que mudem a estrutura de pastas gerada ou

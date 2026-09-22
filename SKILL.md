@@ -80,3 +80,20 @@ E explique ao usuario, em 3-4 linhas, a convencao:
 - `docs/README.md` e o indice da pasta docs/ inteira (visao geral pra humanos); `docs/superpowers/specs/README.md` e so o indice mecanico de specs do fluxo SDD — escopos diferentes.
 - `docs/superpowers/` segue o fluxo SDD descrito em `.agents/rules/spec-workflow.md`: `PRD.md` (intencao de produto, estavel), `ADR.md` (decisoes AD-NNN, append-only), `specs/` e `plans/` (por feature — toda spec nao-trivial inclui secao "Alternativas consideradas").
 - `.editorconfig` tem uma secao `[*]` base valida pra qualquer linguagem, mais uma secao por linguagem escolhida em `--lang`. Toda regra de indentacao vem de fonte oficial (gofmt, PSR-12, rustfmt etc.) — nunca de suposicao. `.agents/rules/code-style.md` nao duplica indentacao, so aponta pro `.editorconfig`.
+
+## Exemplo de conversa completa
+
+Usuario: "quero comecar um projeto novo chamado catalogo-api, em Python com
+FastAPI, vou usar Claude Code".
+
+1. Stack ja veio clara (`python`). Agentes ja veio claro (`claude`).
+2. "Onde criar" nao veio claro — pergunte. Usuario responde "aqui mesmo,
+   ja estou numa pasta vazia que criei pra isso".
+3. Valide `$nome` = `catalogo-api` contra a regex — bate, prossiga.
+4. Monte e rode:
+   ```bash
+   bash ${CLAUDE_SKILL_DIR}/scripts/scaffold.sh "catalogo-api" --lang=python --agents=claude --here
+   ```
+5. Rode `find . -not -path '*/node_modules/*' | sort` (usou `--here`) e
+   mostre a arvore.
+6. Explique a convencao em 3-4 linhas (ver lista de bullets acima).

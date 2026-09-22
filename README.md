@@ -5,6 +5,19 @@ como pair programming. Gera uma fonte de verdade cross-agent (`.agents/`), um
 fluxo de Spec-Driven Development (PRD/ADR/specs/plans) e um `.editorconfig`
 com cada regra de indentação vinda de fonte oficial — não de suposição.
 
+## Exemplo rápido
+
+```bash
+bash scripts/scaffold.sh minha-api --lang=python --agents=claude
+```
+
+Cria `minha-api/` com `.agents/` (fonte de verdade cross-agent),
+`docs/superpowers/` (PRD/ADR/specs/plans vazios, prontos pra preencher),
+`CLAUDE.md` + `.claude/` (porque pediu `claude` em `--agents`) e um
+`.editorconfig` com a seção `[*.py]` do PEP 8. Sem `--agents`, gera pra
+todos; sem `--lang`, o `.editorconfig` sai só com a base universal. Mais
+detalhes de cada flag nas seções abaixo.
+
 ## Quando usar
 
 Feita pra **começar um projeto novo**, não pra injetar estrutura num projeto
