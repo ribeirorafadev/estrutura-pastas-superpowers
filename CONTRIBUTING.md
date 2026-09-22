@@ -55,9 +55,10 @@ manual e confiar. Fluxo esperado (o mesmo usado no histórico deste repo):
    em outro fluxo; só a regressão completa pega isso.
 
 Mudança maior (nova feature, não só bugfix)? Considere registrar o design
-em `docs/superpowers/specs/` antes de implementar — ver
-`.agents/rules/spec-workflow.md` (gerado nos projetos que esta skill cria)
-ou os exemplos já existentes em `docs/superpowers/` deste próprio repo.
+numa spec antes de implementar, seguindo o mesmo fluxo de
+`.agents/rules/spec-workflow.md` (o que é gerado nos projetos que esta
+skill cria) — `docs/superpowers/` é local, gitignored neste próprio repo,
+então não serve de exemplo público, mas o formato é o mesmo.
 
 ## Outras contribuições
 

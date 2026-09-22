@@ -3,6 +3,12 @@
 # pessoal entre sessões de IA, não faz parte do que é publicado.
 HANDOFF.md
 
+# specs/plans do desenvolvimento desta própria skill (não é
+# templates/docs/, que é o que a skill gera pros projetos dos usuários —
+# isso aqui é o processo interno de design das features desta skill,
+# uso pessoal entre sessões, não faz parte do que é publicado).
+docs/
+
 # Cruft de SO/editor — baseline defensivo, nada disso existe hoje na
 # árvore, mas evita commit acidental depois que o repo for clonado por
 # outras pessoas/máquinas.
