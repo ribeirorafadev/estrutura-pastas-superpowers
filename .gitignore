@@ -1,13 +1,17 @@
 # Handoff de sessão desta skill (não é o HANDOFF.md gerado nos projetos
 # escaffoldados, que vive em templates/HANDOFF.md e é versionado) — uso
 # pessoal entre sessões de IA, não faz parte do que é publicado.
-HANDOFF.md
+# "/" no início ancora na raiz — sem ele, o padrão também pegava
+# templates/HANDOFF.md (bug real, achado rodando o CI de verdade: o
+# script quebrava pra todo mundo porque o template nunca foi commitado).
+/HANDOFF.md
 
 # specs/plans do desenvolvimento desta própria skill (não é
 # templates/docs/, que é o que a skill gera pros projetos dos usuários —
 # isso aqui é o processo interno de design das features desta skill,
 # uso pessoal entre sessões, não faz parte do que é publicado).
-docs/
+# Ancorado na raiz pelo mesmo motivo do HANDOFF.md acima.
+/docs/
 
 # Cruft de SO/editor — baseline defensivo, nada disso existe hoje na
 # árvore, mas evita commit acidental depois que o repo for clonado por
